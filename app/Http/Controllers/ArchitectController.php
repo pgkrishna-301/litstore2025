@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Architect;
+use App\Models\Profession;
 use Illuminate\Support\Facades\Validator;
 
 class ArchitectController extends Controller {
@@ -13,14 +14,14 @@ class ArchitectController extends Controller {
     public function store(Request $request) {
         // Validate Request Data
         $validator = Validator::make($request->all(), [
-            'select_architect' => 'required|string',
+            'select_architect' => 'required|integer|exists:add_profession,id',
             'name' => 'required|string|max:255',
             'firm_name' => 'nullable|string|max:255',
             'email' => 'nullable|string|email|',
             'ph_no' => 'required|string|',
             'shipping_address' => 'required|string',
-            'status' => 'nullable|string',
-            'creator' => 'nullable|string',
+            'status' => 'nullable|integer',
+           
             
         ]);
 
@@ -37,13 +38,13 @@ class ArchitectController extends Controller {
         return response()->json([
             'status' => true,
             'message' => 'Architect details saved successfully',
-            'data' => $architect,
+            'data' => $architect->load('profession'),
         ], 201);
     }
 
     // Get All Architects
     public function getAllArchitects() {
-        $architects = Architect::all();
+        $architects = Architect::with('profession')->get();
 
         return response()->json([
             'status' => true,
@@ -54,7 +55,7 @@ class ArchitectController extends Controller {
 
     // Get Single Architect by ID
     public function getArchitectById($id) {
-        $architect = Architect::find($id);
+        $architect = Architect::with('profession')->find($id);
 
         if (!$architect) {
             return response()->json([
@@ -84,14 +85,14 @@ class ArchitectController extends Controller {
     
         // Validate Request Data
         $validator = Validator::make($request->all(), [
-            'select_architect' => 'required|string',
-            'name' => 'required|string|max:255',
+            'select_architect' => 'nullable|integer|exists:add_profession,id',
+            'name' => 'string|max:255',
             'firm_name' => 'nullable|string|max:255',
             'email' => 'nullable|string|email',
-            'ph_no' => 'required|string|max:15', 
-            'shipping_address' => 'required|string',
-            'status' => 'nullable|string|',
-            'creator' => 'nullable|string|'
+            'ph_no' => 'string|max:15', 
+            'shipping_address' => 'string',
+            'status' => 'nullable|integer|',
+            
         ]);
     
         if ($validator->fails()) {
@@ -107,7 +108,7 @@ class ArchitectController extends Controller {
         return response()->json([
             'status' => true,
             'message' => 'Architect details updated successfully',
-            'data' => $architect,
+            'data' => $architect->load('profession'),
         ], 200);
     }
     
@@ -115,14 +116,14 @@ class ArchitectController extends Controller {
 public function updateAll(Request $request) {
     // Validate Request Data
     $validator = Validator::make($request->all(), [
-        'select_architect' => '|string',
-        'name' => '|string|max:255',
+        'select_architect' => 'nullable|integer|exists:add_profession,id',
+        'name' => 'nullable|string|max:255',
         'firm_name' => 'nullable|string|max:255',
         'email' => 'nullable|string|email',
-        'ph_no' => '|string',
-        'shipping_address' => '|string',
-        'status' => 'nullable|string',
-        'creator' => 'nullable|string|'
+        'ph_no' => 'nullable|string',
+        'shipping_address' => 'nullable|string',
+        'status' => 'nullable|integer',
+       
     ]);
 
     if ($validator->fails()) {
@@ -141,7 +142,7 @@ public function updateAll(Request $request) {
         'ph_no',
         'shipping_address',
         'status',
-        'creator'
+        
     ]));
 
     return response()->json([
@@ -175,7 +176,7 @@ public function updateAll(Request $request) {
 
     public function getByCreator($creator)
 {
-    $architects = Architect::where('creator', $creator)->get();
+    $architects = Architect::where('creator', $creator)->with('profession')->get();
 
     if ($architects->isEmpty()) {
         return response()->json([
@@ -190,6 +191,54 @@ public function updateAll(Request $request) {
     ]);
 }
 
+    // Get architects by profession
+    public function getByProfession($professionId)
+    {
+        $profession = Profession::find($professionId);
+        
+        if (!$profession) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Profession not found',
+            ], 404);
+        }
 
+        $architects = $profession->architects;
 
+        return response()->json([
+            'status' => true,
+            'message' => 'Architects for profession fetched successfully',
+            'profession' => $profession,
+            'architects' => $architects,
+        ], 200);
+    }
+
+    // Test method to verify foreign key relationship
+    public function testRelationship()
+    {
+        try {
+            // Get an architect with its profession
+            $architect = Architect::with('profession')->first();
+            
+            if (!$architect) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No architects found',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Foreign key relationship working correctly',
+                'architect' => $architect,
+                'profession' => $architect->profession
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Error testing relationship',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

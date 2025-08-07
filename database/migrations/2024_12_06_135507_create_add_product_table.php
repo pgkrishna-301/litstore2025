@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('add_products', function (Blueprint $table) {
+        Schema::create('add_product', function (Blueprint $table) {
             $table->id();
             $table->string('banner_image')->nullable(); // Nullable if not mandatory
             $table->json('add_image')->nullable(); // JSON to store multiple images in one column
@@ -43,6 +43,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('add_products');
+        Schema::dropIfExists('add_product');
     }
 };

@@ -18,4 +18,12 @@ class Profession extends Model
         'email',
         'ph_no',
     ];
+
+    /**
+     * Get the architects for this profession.
+     */
+    public function architects()
+    {
+        return $this->hasMany(Architect::class, 'select_architect', 'id');
+    }
 }

@@ -9,17 +9,25 @@ class AddProductNameAndUserIdToCartItemsTable extends Migration
     {
         Schema::table('cartitem', function (Blueprint $table) {
             // Add product_name and user_id columns (no foreign key)
-            $table->string('product_name');  // Add product_name as string
-            $table->unsignedBigInteger('user_id');  // Add user_id as an unsigned integer
+            if (!Schema::hasColumn('cartitem', 'product_name')) {
+                $table->string('product_name');
+            }
+            if (!Schema::hasColumn('cartitem', 'user_id')) {
+                $table->unsignedBigInteger('user_id');
+            }
         });
     }
 
     public function down()
     {
-        Schema::table('cart_items', function (Blueprint $table) {
+        Schema::table('cartitem', function (Blueprint $table) {
             // Drop product_name and user_id columns if rolling back the migration
-            $table->dropColumn('product_name');
-            $table->dropColumn('user_id');
+            if (Schema::hasColumn('cartitem', 'product_name')) {
+                $table->dropColumn('product_name');
+            }
+            if (Schema::hasColumn('cartitem', 'user_id')) {
+                $table->dropColumn('user_id');
+            }
         });
     }
 }

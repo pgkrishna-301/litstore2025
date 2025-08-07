@@ -10,17 +10,20 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up()
-{
-    Schema::table('user', function (Blueprint $table) {
-        $table->string('profile_image')->nullable()->after('email');  // Add profile_image column
-    });
-}
+    {
+        Schema::table('user', function (Blueprint $table) {
+            if (!Schema::hasColumn('user', 'profile_image')) {
+                $table->string('profile_image')->nullable()->after('api_token');
+            }
+        });
+    }
 
-public function down()
-{
-    Schema::table('user', function (Blueprint $table) {
-        $table->dropColumn('profile_image');
-    });
-}
-
+    public function down()
+    {
+        Schema::table('user', function (Blueprint $table) {
+            if (Schema::hasColumn('user', 'profile_image')) {
+                $table->dropColumn('profile_image');
+            }
+        });
+    }
 };

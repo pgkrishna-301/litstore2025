@@ -6,109 +6,87 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
-
 class ProductController extends Controller
 {
-    public function productStored(Request $request)
-    {
-        $validatedData = $request->validate([
-            'banner_image' => 'nullable|file|image|max:2048',
-        'add_image' => 'nullable|array',
+public function productStored(Request $request)
+{
+    // ✅ Validate request
+    $validatedData = $request->validate([
+        'banner_image' => 'nullable|file|image|max:2048',
+        'add_image' => 'nullable',
         'add_image.*' => 'nullable|file|image|max:2048',
-            'product_category' => 'nullable|string',
-            'product_brand' => 'nullable|string',
-            'product_name' => 'nullable|string',
-            'product_description' => 'nullable|string',
-            'mrp' => 'nullable|numeric',
-            'discount' => 'nullable|numeric',
-            'offer_price' => 'nullable|numeric',
-            'offer_product' => 'nullable|numeric',
-    
-            'size_name' => 'nullable|array',
-            'size_name.*.size_name' => 'nullable|string',
-            'size_name.*.price' => 'nullable|integer',
-            'size_name.*.qty' => 'nullable|integer',
-    
-            'color_image' => 'nullable|array',
-            'color_image.*.image' => 'nullable|file|image|max:2048',
-            'color_image.*.qty' => 'nullable|integer',
-            'color_image.*.name' => 'nullable|string',
-            'color_image.*.size' => 'nullable|string',
-            'color_image.*.price' => 'nullable|integer',
-    
-            'pack_size' => 'nullable|string',
-            'light_type' => 'nullable|string',
-            'wattage' => 'nullable|string',
-            'special_feature' => 'nullable|string',
-            'bulb_shape_size' => 'nullable|string',
-            'bulb_base' => 'nullable|string',
-            'light_colour' => 'nullable|string',
-            'net_quantity' => 'nullable|integer',
-            'colour_temperature' => 'nullable|string',
-            'about_items' => 'nullable|string',
-            'discount_status' => 'nullable|integer',
-        ]);
-    
-        // Banner image
-        if ($request->hasFile('banner_image')) {
-            $validatedData['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
-        }
-    
-        // Handle additional images
-        if ($request->hasFile('add_image')) {
-            $validatedData['add_image'] = [];
-            foreach ($request->file('add_image') as $file) {
-                $validatedData['add_image'][] = $file->store('uploads', 'public');
-            }
-            $validatedData['add_image'] = json_encode($validatedData['add_image']);
-        }
-    
-    
-        // Color images
-        if ($request->has('color_image')) {
-            $colorImages = [];
-            foreach ($request->input('color_image') as $index => $color) {
-                $imageUrl = null;
-    
-                if ($request->hasFile("color_image.$index.image")) {
-                    $file = $request->file("color_image.$index.image");
-                    $imagePath = $file->store('uploads', 'public');
-                    $imageUrl = asset("storage/$imagePath");
-                }
-    
-                $colorImages[] = [
-                    'image' => $imageUrl,
-                    'qty' => $color['qty'] ?? 0,
-                    'name' => $color['name'] ?? '',
-                    'size' => $color['size'] ?? '',
-                    'price' => $color['price'] ?? ''
-                ];
-            }
-    
-            $validatedData['color_image'] = $colorImages;
-        }
-    
-        // Size info
-        if ($request->has('size_name')) {
-            $validatedData['size_name'] = $request->input('size_name');
-        }
-    
-        // Store product
-        $product = Product::create($validatedData);
-    
-        return response()->json([
-            'success' => true,
-            'data' => $product,
-        ], 201);
+        'product_name' => 'nullable|string',
+        'product_category' => 'nullable|string',
+        'mrp' => 'nullable|numeric',
+        'hns_code' => 'nullable|string',
+        'dimensions' => 'nullable|string',
+        'driver_output' => 'nullable|string',
+        'ip_rating' => 'nullable|string',
+        'body_color' => 'nullable|array',
+        'body_color.*' => 'nullable|string',
+        'color_temp' => 'nullable|array',
+        'color_temp.*' => 'nullable|string',
+        'beam_angle' => 'nullable|array',
+        'beam_angle.*' => 'nullable|string',
+        'cut_out' => 'nullable|array',
+        'cut_out.*' => 'nullable|string',
+        'description' => 'nullable|string',
+        'product_details' => 'nullable|array',
+        'product_details.*.reflector_color' => 'nullable|string',
+        'product_details.*.net_quantity' => 'nullable|integer',
+    ]);
+
+    // ✅ Store full URL for banner image
+    if ($request->hasFile('banner_image')) {
+        $path = $request->file('banner_image')->store('uploads/images', 'public');
+        $validatedData['banner_image'] = url('storage/' . $path); // Store full URL
     }
+
+    // ✅ Handle multiple additional images
+    $imagePaths = [];
+
+    // 1️⃣ If files are uploaded
+    if ($request->hasFile('add_image')) {
+        foreach ($request->file('add_image') as $file) {
+            if ($file && $file->isValid()) {
+                $path = $file->store('uploads/images', 'public');
+                $imagePaths[] = url('storage/' . $path); // Store full URL
+            }
+        }
+    }
+
+    // 2️⃣ If input is URL or string path
+    if ($request->filled('add_image') && !$request->hasFile('add_image')) {
+        $addImageInput = $request->input('add_image');
+        if (is_string($addImageInput)) {
+            $imagePaths[] = $addImageInput;
+        } elseif (is_array($addImageInput)) {
+            foreach ($addImageInput as $img) {
+                if (is_string($img)) {
+                    $imagePaths[] = $img;
+                }
+            }
+        }
+    }
+
+    // ✅ Encode as JSON with full URLs
+    $validatedData['add_image'] = !empty($imagePaths) ? json_encode($imagePaths) : null;
+
+    // ✅ Store product in DB
+    $product = Product::create($validatedData);
+
+    return response()->json([
+        'success' => true,
+        'data' => $product,
+    ], 201);
+}
+
+
+
+
+
+
     
-    
-
-
-// Helper method to parse "Size1:price, Size2:price" into associative array
-
-
-
 public function updateProduct(Request $request, $id)
 {
     Log::info('Request Data:', $request->all());
@@ -130,90 +108,67 @@ public function updateProduct(Request $request, $id)
             'banner_image' => 'image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $path = $request->file('banner_image')->store('uploads', 'public');
-        $product->banner_image = $path;
+        $path = $request->file('banner_image')->store('uploads/images', 'public');
+        $product->banner_image = url('storage/' . $path); // ✅ dynamic full URL
 
-        Log::info('Banner Image Uploaded:', ['path' => $path]);
+        Log::info('Banner Image Uploaded:', ['url' => $product->banner_image]);
     }
 
-    // Handle add_image uploads
-   // Handle add_image uploads
-if ($request->hasFile('add_image')) {
-    $request->validate([
-        'add_image' => 'array',
-        'add_image.*' => 'image|mimes:jpeg,png,jpg|max:2048',
-    ]);
+    // Handle add_image uploads (as files)
+    if ($request->hasFile('add_image')) {
+        $request->validate([
+            'add_image' => 'array',
+            'add_image.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+        ]);
 
-    $newImages = [];
-    foreach ($request->file('add_image') as $file) {
-        $newImages[] = $file->store('uploads', 'public');
-    }
-
-    // Overwrite old images
-    $product->add_image = json_encode($newImages);
-    Log::info('Additional Images Replaced:', $newImages);
-}
-
-
-    // Handle color images
-    if ($request->has('color_image')) {
-        $colorImages = [];
-        foreach ($request->input('color_image') as $index => $color) {
-            $imageUrl = $color['image'] ?? null;
-
-            if ($request->hasFile("color_image.$index.image")) {
-                $file = $request->file("color_image.$index.image");
-                $imagePath = $file->store('uploads', 'public');
-                $imageUrl = asset("storage/$imagePath");
-            }
-
-            $colorImages[] = [
-                'image' => $imageUrl,
-                'qty' => $color['qty'] ?? 0,
-                'name' => $color['name'] ?? '',
-                'size' => $color['size'] ?? '',
-                'price' => $color['price'] ?? 0,
-            ];
+        $newImages = [];
+        foreach ($request->file('add_image') as $file) {
+            $storedPath = $file->store('uploads/images', 'public');
+            $newImages[] = url('storage/' . $storedPath);
         }
 
-        $product->color_image = $colorImages;
+        $product->add_image = json_encode($newImages, JSON_UNESCAPED_SLASHES);
+        Log::info('Additional Images Stored:', ['add_image' => $product->add_image]);
     }
 
-    // Handle size_name
-    if ($request->filled('size_name')) {
-        $input = $request->size_name;
+    // Handle add_image as string or array of strings
+    if ($request->filled('add_image') && !$request->hasFile('add_image')) {
+        $addImageInput = $request->input('add_image');
+        $imageArray = [];
 
-        if (is_array($input)) {
-            $product->size_name = $input;
-        } else {
-            $decoded = json_decode($input, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $product->size_name = $decoded;
-            } else {
-                $product->size_name = $this->parseSizeInput($input);
+        if (is_string($addImageInput)) {
+            $imageArray = [filter_var($addImageInput, FILTER_VALIDATE_URL) ? $addImageInput : url('storage/' . ltrim($addImageInput, '/'))];
+        } elseif (is_array($addImageInput)) {
+            foreach ($addImageInput as $img) {
+                $imageArray[] = filter_var($img, FILTER_VALIDATE_URL) ? $img : url('storage/' . ltrim($img, '/'));
             }
         }
+
+        $product->add_image = json_encode($imageArray, JSON_UNESCAPED_SLASHES);
     }
 
-    // Handle pack_size
-    if ($request->filled('pack_size')) {
-        $input = $request->pack_size;
-
-        $decoded = json_decode($input, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            $product->pack_size = json_encode($decoded);
-        } else {
-            $product->pack_size = json_encode($this->parseSizeInput($input));
+    // Handle array fields
+    $arrayFields = ['body_color', 'color_temp', 'beam_angle', 'cut_out'];
+    foreach ($arrayFields as $field) {
+        if ($request->filled($field)) {
+            $product->$field = $request->input($field);
         }
+    }
+
+    // Handle product_details array
+    if ($request->filled('product_details')) {
+        $product->product_details = $request->input('product_details');
     }
 
     // Update remaining fields
     $product->fill($request->except([
         'banner_image',
         'add_image',
-        'color_image',
-        'size_name',
-        'pack_size',
+        'body_color',
+        'color_temp',
+        'beam_angle',
+        'cut_out',
+        'product_details',
     ]));
 
     $product->save();
@@ -227,21 +182,66 @@ if ($request->hasFile('add_image')) {
 }
 
 
-// Same parsing function used in productStored
 
+    public function getAllProducts()
+    {
+        $products = Product::all();
 
-    
-    
+        $products = $products->map(function ($product) {
+            // Handle banner image URL
+            if (!empty($product->banner_image)) {
+                if (filter_var($product->banner_image, FILTER_VALIDATE_URL)) {
+                    $product->banner_image_url = $product->banner_image;
+                } else {
+                    $product->banner_image_url = url('storage/' . $product->banner_image);
+                }
+            } else {
+                $product->banner_image_url = null;
+            }
 
-public function getAllProducts()
-{
-    $products = Product::all();
+            // Handle additional images
+            $addImages = [];
+            if (!empty($product->add_image)) {
+                $decodedImages = is_array($product->add_image) ? $product->add_image : json_decode($product->add_image, true);
+                if (is_array($decodedImages)) {
+                    foreach ($decodedImages as $img) {
+                        if (filter_var($img, FILTER_VALIDATE_URL)) {
+                            $addImages[] = $img;
+                        } else {
+                            $addImages[] = url('storage/' . $img);
+                        }
+                    }
+                }
+            }
+            $product->add_image_url = $addImages;
 
-    $products = $products->map(function ($product) {
+            return $product;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $products,
+        ], 200);
+    }
+
+    public function getProductById($id)
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found.',
+            ], 404);
+        }
+
         // Handle banner image URL
         if (!empty($product->banner_image)) {
-            $filename = basename($product->banner_image);
-            $product->banner_image_url = url('api/banner-image/' . $filename);
+            if (filter_var($product->banner_image, FILTER_VALIDATE_URL)) {
+                $product->banner_image_url = $product->banner_image;
+            } else {
+                $product->banner_image_url = url('storage/' . $product->banner_image);
+            }
         } else {
             $product->banner_image_url = null;
         }
@@ -249,152 +249,83 @@ public function getAllProducts()
         // Handle additional images
         $addImages = [];
         if (!empty($product->add_image)) {
-            $decodedImages = json_decode($product->add_image, true);
+            $decodedImages = is_array($product->add_image) ? $product->add_image : json_decode($product->add_image, true);
             if (is_array($decodedImages)) {
                 foreach ($decodedImages as $img) {
-                    $addImages[] = url('api/product_add-image/' . basename($img));
+                    if (filter_var($img, FILTER_VALIDATE_URL)) {
+                        $addImages[] = $img;
+                    } else {
+                        $addImages[] = url('storage/' . $img);
+                    }
                 }
             }
         }
         $product->add_image_url = $addImages;
 
-        // Handle color images
-        $colorImages = [];
-        if (!empty($product->color_image)) {
-            $decodedColors = is_array($product->color_image)
-                ? $product->color_image
-                : json_decode($product->color_image, true);
+        return response()->json([
+            'success' => true,
+            'data' => $product,
+        ], 200);
+    }
 
-            if (is_array($decodedColors)) {
-                foreach ($decodedColors as $color) {
-                    if (!empty($color['image'])) {
-                        $color['image_url'] = url('api/product-image/' . basename($color['image']));
-                    } else {
-                        $color['image_url'] = null;
+    public function deleteProduct($id)
+    {
+        // Log the incoming delete request
+        Log::info('Delete Request for Product ID:', ['id' => $id]);
+
+        // Find the product by ID
+        $product = Product::find($id);
+
+        // If the product is not found, return a 404 response
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found.',
+            ], 404);
+        }
+
+        // Delete associated files if they exist
+        if ($product->banner_image && Storage::disk('public')->exists($product->banner_image)) {
+            Storage::disk('public')->delete($product->banner_image);
+            Log::info('Banner image deleted:', ['path' => $product->banner_image]);
+        } elseif ($product->banner_image && filter_var($product->banner_image, FILTER_VALIDATE_URL)) {
+            // Extract path from full URL for deletion
+            $path = str_replace(url('storage/'), '', $product->banner_image);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+                Log::info('Banner image deleted:', ['path' => $path]);
+            }
+        }
+
+        if ($product->add_image) {
+            $addImages = is_array($product->add_image) ? $product->add_image : json_decode($product->add_image, true);
+            if (is_array($addImages)) {
+                foreach ($addImages as $imagePath) {
+                    if (Storage::disk('public')->exists($imagePath)) {
+                        Storage::disk('public')->delete($imagePath);
+                        Log::info('Additional image deleted:', ['path' => $imagePath]);
+                    } elseif (filter_var($imagePath, FILTER_VALIDATE_URL)) {
+                        // Extract path from full URL for deletion
+                        $path = str_replace(url('storage/'), '', $imagePath);
+                        if (Storage::disk('public')->exists($path)) {
+                            Storage::disk('public')->delete($path);
+                            Log::info('Additional image deleted:', ['path' => $path]);
+                        }
                     }
-                    $colorImages[] = $color;
                 }
             }
         }
-        $product->color_image = $colorImages;
 
-        return $product;
-    });
+        // Delete the product
+        $product->delete();
 
-    return response()->json([
-        'success' => true,
-        'data' => $products,
-    ], 200);
-}
+        // Log the deletion
+        Log::info('Product deleted successfully:', ['id' => $id]);
 
-
-
-
-   public function getProductById($id)
-{
-    $product = Product::find($id);
-
-    if (!$product) {
+        // Return a success response
         return response()->json([
-            'success' => false,
-            'message' => 'Product not found.',
-        ], 404);
+            'success' => true,
+            'message' => 'Product deleted successfully.',
+        ], 200);
     }
-
-    // Handle banner image URL
-    if (!empty($product->banner_image)) {
-        $filename = basename($product->banner_image);
-        $product->banner_image_url = url('api/product-image/' . $filename);
-    } else {
-        $product->banner_image_url = null;
-    }
-
-    // Handle additional images
-    $addImages = [];
-    if (!empty($product->add_image)) {
-        $decodedImages = json_decode($product->add_image, true);
-        if (is_array($decodedImages)) {
-            foreach ($decodedImages as $img) {
-                $addImages[] = url('api/product_add-image/' . basename($img));
-            }
-        }
-    }
-    $product->add_image_url = $addImages;
-
-    // Handle color images
-    $colorImages = [];
-    if (!empty($product->color_image)) {
-        $decodedColors = is_array($product->color_image)
-            ? $product->color_image
-            : json_decode($product->color_image, true);
-
-        if (is_array($decodedColors)) {
-            foreach ($decodedColors as $color) {
-                if (!empty($color['image'])) {
-                    $color['image_url'] = url('api/productcolor-image/' . basename($color['image']));
-                } else {
-                    $color['image_url'] = null;
-                }
-                $colorImages[] = $color;
-            }
-        }
-    }
-    $product->color_image = $colorImages;
-
-    return response()->json([
-        'success' => true,
-        'data' => $product,
-    ], 200);
-}
-
-    /**
- * Delete a product by ID.
- */
-public function deleteProduct($id)
-{
-    // Log the incoming delete request
-    Log::info('Delete Request for Product ID:', ['id' => $id]);
-
-    // Find the product by ID
-    $product = Product::find($id);
-
-    // If the product is not found, return a 404 response
-    if (!$product) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Product not found.',
-        ], 404);
-    }
-
-    // Delete associated files if they exist
-    if ($product->banner_image && Storage::disk('public')->exists($product->banner_image)) {
-        Storage::disk('public')->delete($product->banner_image);
-        Log::info('Banner image deleted:', ['path' => $product->banner_image]);
-    }
-
-    if ($product->color_image) {
-        $colorImages = json_decode($product->color_image, true);
-        if (is_array($colorImages)) {
-            foreach ($colorImages as $imagePath) {
-                if (Storage::disk('public')->exists($imagePath)) {
-                    Storage::disk('public')->delete($imagePath);
-                    Log::info('Color image deleted:', ['path' => $imagePath]);
-                }
-            }
-        }
-    }
-
-    // Delete the product
-    $product->delete();
-
-    // Log the deletion
-    Log::info('Product deleted successfully:', ['id' => $id]);
-
-    // Return a success response
-    return response()->json([
-        'success' => true,
-        'message' => 'Product deleted successfully.',
-    ], 200);
-}
-
 }

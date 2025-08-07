@@ -16,6 +16,30 @@ class Architect extends Model {
         'ph_no',
         'shipping_address',
         'status',
-        'creator'
+        
     ];
+
+    /**
+     * Get the profession that this architect belongs to.
+     */
+    public function profession()
+    {
+        return $this->belongsTo(Profession::class, 'select_architect', 'id');
+    }
+
+    /**
+     * Get the cart items that belong to this architect (customer).
+     */
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class, 'customer_id');
+    }
+
+    /**
+     * Get the order details that belong to this architect (customer).
+     */
+    public function orderDetails()
+    {
+        return $this->hasMany(OrderDetail::class, 'customer_id');
+    }
 }

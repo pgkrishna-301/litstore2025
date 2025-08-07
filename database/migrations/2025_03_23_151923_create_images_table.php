@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('images', function (Blueprint $table) {
-            $table->id();
-            $table->string('slide_image')->nullable(); // Multiple images (array)
-            $table->string('sale_image')->nullable();  // Single image
-            $table->string('day_image')->nullable();   // Single image
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('images')) {
+            Schema::create('images', function (Blueprint $table) {
+                $table->id();
+                $table->string('slide_image')->nullable(); // Multiple images (array)
+                $table->string('sale_image')->nullable();  // Single image
+                $table->string('day_image')->nullable();   // Single image
+                $table->timestamps();
+            });
+        }
     }
     
 

@@ -21,6 +21,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\SportLightController;
+use App\Http\Controllers\TaskManagementController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WishlistController;
@@ -65,7 +66,7 @@ Route::get('/hideuser/{id}', [AuthController::class, 'getUserById']);
 Route::get('/user/profile', [AuthController::class, 'getUserProfile']);
 Route::post('/user/update', [AuthController::class, 'updateUser']);
 Route::put('/update/{id}', [AuthController::class, 'updateHide']);
-Route::post('/update/{id}', [AuthController::class, 'updateHide']);
+
 Route::post('/updateHide/{architect}', [AuthController::class, 'updatearchitectHide']);
 
 
@@ -155,7 +156,7 @@ Route::get('/get/order/{order_id}', [OrderDetailController::class, 'getOrderByOr
  Route::get('order-details/user/{userId}', [OrderDetailController::class, 'getByUserId']);
  Route::post('/store-order', [ProductOrderController::class, 'store']);
  Route::put('/order/update/{order_id}', [OrderDetailController::class, 'updateorderId']);
- 
+ Route::get('/order-details/get', [OrderDetailController::class, 'getAllOrders']);
  Route::post('/update-order/{customer_id}', [OrderDetailController::class, 'updateOrderByCustomerId']);
  Route::delete('/orders/{order_id}', [OrderDetailController::class, 'destroy']);
  Route::get('/orders/customer/{customer_id}', [OrderDetailController::class, 'getOrdersByCustomerId']);
@@ -189,7 +190,10 @@ Route::get('/get/order/{order_id}', [OrderDetailController::class, 'getOrderByOr
  Route::delete('/cart-items/{id}', [CartItemController::class, 'destroy']);
  Route::put('/cart-items/{id}', [CartItemController::class, 'update'])->name('cart-items.update');
  Route::get('/cart-items/customer/{customerId}', [CartItemController::class, 'getByCustomerId']);
-// routes/api.php
+ Route::get('/cart-items/architect/{architectId}', [CartItemController::class, 'getByArchitect']);
+ Route::get('/cart-items/product/{productId}', [CartItemController::class, 'getByProduct']);
+Route::post('/cart-items/test-json', [CartItemController::class, 'testJson']);
+
 Route::delete('/cart-items/customer/delete/{customer_id}',[CartItemController::class, 'destroyByCustomer']);   // ← no ->middleware() chain
 
 
@@ -199,6 +203,7 @@ Route::delete('/cart-items/customer/delete/{customer_id}',[CartItemController::c
  Route::get('/purchase-items/get/{user_id}', [PurchaseController::class, 'index']);
  Route::delete('/purchase-items/{id}', [PurchaseController::class, 'destroy']);
  Route::put('/purchase-items/{id}', [PurchaseController::class, 'update'])->name('demo');
+ Route::get('/purchases', [PurchaseController::class, 'getAll']);
 
 
 
@@ -226,14 +231,17 @@ Route::delete('/cart-items/customer/delete/{customer_id}',[CartItemController::c
  Route::get('/sport_light/get', [SportLightController::class, 'getImages']);
 
  Route::post('/architects', [ArchitectController::class, 'store']);
- Route::get('/architects/get', [ArchitectController::class, 'getAllArchitects']);
- Route::put('/architects/update/{ph_no}', [ArchitectController::class, 'update']);
- Route::put('/architects/update-all', [ArchitectController::class, 'updateAll']);
- Route::get('/architects/creator/{creator}', [ArchitectController::class, 'getByCreator']);
+Route::get('/architects/get', [ArchitectController::class, 'getAllArchitects']);
+Route::put('/architects/update/{ph_no}', [ArchitectController::class, 'update']);
+Route::put('/architects/update-all', [ArchitectController::class, 'updateAll']);
+Route::get('/architects/creator/{creator}', [ArchitectController::class, 'getByCreator']);
+Route::get('/architects/profession/{professionId}', [ArchitectController::class, 'getByProfession']);
+Route::get('/test-architect-relationship', [ArchitectController::class, 'testRelationship']);
 
 
  Route::post('/profession', [ProfessionController::class, 'store']);
- Route::get('/get/profession', [ProfessionController::class, 'getProfessions']);
+Route::get('/get/profession', [ProfessionController::class, 'getProfessions']);
+Route::get('/profession/{id}', [ProfessionController::class, 'getProfessionById']);
 
 
  Route::post('/hide', [HideController::class, 'store']); 
@@ -266,11 +274,19 @@ Route::delete('/add-vendors/{id}', [AddVendorController::class, 'destroy']);
 Route::post('/add-size', [SizeController::class, 'store']);
 Route::put('/update-size/{id}', [SizeController::class, 'update']);
 Route::get('/size/{id}', [SizeController::class, 'show']);
+Route::get('/sizes', [SizeController::class, 'index']);
+Route::delete('/size/{id}', [SizeController::class, 'destroy']);
 
+Route::get('/all-tasks', [TaskManagementController::class, 'index']);
+Route::get('/tasks/user/{userId}', [TaskManagementController::class, 'getByUser']);       // Get all tasks
+Route::post('/add-task', [TaskManagementController::class, 'store']);       // Create a new task
+Route::get('/tasks/user/{id}', [TaskManagementController::class, 'show']);        // Get single task
+Route::put('/tasks/user/{id}', [TaskManagementController::class, 'update']);      // Update task
+Route::delete('/tasks/user/{id}', [TaskManagementController::class, 'destroy']);  // Delete task
+Route::get('/test-task-relationship', [TaskManagementController::class, 'testRelationship']); // Test foreign key relationship
 
-
-
-
+ 
+  
 
 
 

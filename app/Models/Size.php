@@ -6,12 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Size extends Model
 {
-    protected $fillable = ['sizes', 'color_name', 'location'];
+    protected $fillable = [
+        'body_color',
+        'color_temp',
+        'beam_angle',
+        'cut_out',
+        'reflector_color'
+    ];
 
     // Cast these fields to arrays automatically
     protected $casts = [
-        'sizes' => 'array',
-        'color_name' => 'array',
-        'location' => 'array',
+        'body_color' => 'array',
+        'color_temp' => 'array',
+        'beam_angle' => 'array',
+        'cut_out' => 'array',
+        'reflector_color' => 'array',
     ];
 }

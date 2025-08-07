@@ -18,7 +18,7 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\CorsHeaderMiddleware::class,
         \Illuminate\Foundation\Http\Middleware\CheckForMaintenanceMode::class,
       
-        \Illuminate\Session\Middleware\StartSession::class,
+        // \Illuminate\Session\Middleware\StartSession::class, // Removed for API compatibility
         \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
     
         \Illuminate\Routing\Middleware\SubstituteBindings::class,

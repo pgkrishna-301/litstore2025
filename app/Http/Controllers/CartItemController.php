@@ -1,172 +1,148 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use App\Models\CartItem;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Product;
 
 class CartItemController extends Controller
 {
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'product_id' => 'nullable|numeric',
-        'customer_id' => 'nullable|string',
-        'qty' => 'nullable|numeric',
-        'banner_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        'color_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        'size' => 'nullable|string',
-        'size_name' => 'nullable|string',
-        'color_name' => 'nullable|string',
-        'pack_size' => 'nullable|string',
-        'brand' => 'nullable|string',
-        'light_type' => 'nullable|string',
-        'wattage' => 'nullable|string',
-        'mrp' => 'nullable|numeric',
-        'discount' => 'nullable|numeric',
-        'bulb_shape_size' => 'nullable|string',
-        'bulb_base' => 'nullable|string',
-        'product_name' => 'nullable|string',
-        'user_id' => 'nullable|string',
-        'location' => 'nullable|string',
-    ]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:add_product,id',
+            'qty' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'customer_id' => 'required|integer',
+            'user_id' => 'required|string',
+            'reflector_color' => 'nullable|string',
+            'custome_name' => 'nullable|string',
+            'location' => 'nullable|string',
+        ]);
 
-    // ✅ Skip duplicate check if product_id is null or 0
-    $productId = $validated['product_id'] ?? null;
-    if (!is_null($productId) && $productId != 0) {
-        $existing = CartItem::where('product_id', $productId)
-            ->where('size_name', $validated['size_name'] ?? null)
-            ->where('color_name', $validated['color_name'] ?? null)
-            ->where('customer_id', $validated['customer_id'] ?? null)
+        // Check if product exists
+        $product = Product::find($validated['product_id']);
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found.'
+            ], 404);
+        }
+
+        // Check for duplicate cart item
+        $existing = CartItem::where('product_id', $validated['product_id'])
+            ->where('customer_id', $validated['customer_id'])
+            ->where('reflector_color', $validated['reflector_color'] ?? null)
             ->first();
 
         if ($existing) {
             return response()->json([
                 'message' => 'This item already exists in this customer\'s cart.'
-            ], 409); // 409 Conflict
+            ], 409);
         }
+
+        $cartItem = CartItem::create($validated);
+
+        return response()->json([
+            'message' => 'Cart item created successfully.',
+            'data' => $cartItem
+        ], 201);
     }
-
-    // ✅ Handle banner image
-    if ($request->hasFile('banner_image')) {
-        $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
-    }
-
-    // ✅ Handle color image
-    if ($request->hasFile('color_image')) {
-        $validated['color_image'] = $request->file('color_image')->store('uploads', 'public');
-    }
-
-    $cartItem = CartItem::create($validated);
-
-    return response()->json([
-        'message' => 'Cart item created successfully.',
-        'data' => $cartItem
-    ], 201);
-}
-
-
-    
-
 
     public function update(Request $request, $id)
-{
-    // Validate incoming request
-    $validated = $request->validate([
-        'product_id' => 'nullable|numeric',
-        'banner_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048', // 2MB max file size
-        'color_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        'size' => 'nullable|string',
-        'size_name' => 'nullable|string',
-        'pack_size' => 'nullable|string',
-        'brand' => 'nullable|string',
-        'light_type' => 'nullable|string',
-        'wattage' => 'nullable|string',
-        'mrp' => 'nullable|numeric',
-        'discount' => 'nullable|numeric',
-        'bulb_shape_size' => 'nullable|string',
-        'bulb_base' => 'nullable|string',
-        'product_name' => 'nullable|string',
-        'user_id' => 'nullable|string',
-        'qty' => 'nullable|numeric',
-        'location' => 'nullable|string',
-    ]);
+    {
+        $validated = $request->validate([
+            'product_id' => 'nullable|integer|exists:add_product,id',
+            'qty' => 'nullable|integer|min:1',
+            'price' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'customer_id' => 'nullable|integer',
+            'user_id' => 'nullable|string',
+            'reflector_color' => 'nullable|string',
+            'custome_name' => 'nullable|string',
+            'location' => 'nullable|string',
+        ]);
 
-    // Find the cart item by ID
-    $cartItem = CartItem::find($id);
+        $cartItem = CartItem::find($id);
 
-    if (!$cartItem) {
-        return response()->json(['message' => 'Cart item not found.'], 404);
-    }
-
-    // Handle file uploads and update storage
-    if ($request->hasFile('banner_image')) {
-        // Delete the old file if exists
-        if ($cartItem->banner_image) {
-            Storage::disk('public')->delete($cartItem->banner_image);
+        if (!$cartItem) {
+            return response()->json(['message' => 'Cart item not found.'], 404);
         }
-        $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
-    }
 
-    if ($request->hasFile('color_image')) {
-        if ($cartItem->color_image) {
-            Storage::disk('public')->delete($cartItem->color_image);
+        // Check if product exists if product_id is being updated
+        if (isset($validated['product_id'])) {
+            $product = Product::find($validated['product_id']);
+            if (!$product) {
+                return response()->json([
+                    'message' => 'Product not found.'
+                ], 404);
+            }
         }
-        $validated['color_image'] = $request->file('color_image')->store('uploads', 'public');
+
+        $cartItem->update($validated);
+
+        return response()->json([
+            'message' => 'Cart item updated successfully.',
+            'data' => $cartItem
+        ], 200);
     }
 
-    // Update cart item with new values
-    $cartItem->update($validated);
+    public function addToCart(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:add_product,id',
+            'qty' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'customer_id' => 'required|integer',
+            'user_id' => 'required|string',
+            'reflector_color' => 'nullable|string',
+            'custome_name' => 'nullable|string',
+            'location' => 'nullable|string',
+        ]);
 
-    // Return success response
-    return response()->json([
-        'message' => 'Cart item updated successfully.',
-        'data' => $cartItem
-    ], 200);
-}
-public function addToCart(Request $request)
-{
-    $validated = $request->validate([
-        'product_id' => 'nullable|numeric',
-        'user_id' => 'required|integer',
-        'product_name' => 'required|string',
-        'qty' => 'required|integer',
-        'size_name' => 'nullable|string',
-        'size' => 'nullable|string',
-        'brand' => 'nullable|string',
-        'mrp' => 'required|string',
-        'banner_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048', // Ensure it's an image file
-    ]);
+        // Check if product exists
+        $product = Product::find($validated['product_id']);
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found.'
+            ], 404);
+        }
 
-    // Handle file uploads and update storage
-    if ($request->hasFile('banner_image')) {
-        $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
+        // Check for duplicate cart item
+        $existing = CartItem::where('product_id', $validated['product_id'])
+            ->where('customer_id', $validated['customer_id'])
+            ->where('reflector_color', $validated['reflector_color'] ?? null)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'This item already exists in this customer\'s cart.'
+            ], 409);
+        }
+
+        $cartItem = CartItem::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item added to cart successfully',
+            'data' => $cartItem
+        ]);
     }
 
-    $cartItem = CartItem::create($validated);
+    public function getByCustomerId($customerId)
+    {
+        $cartItems = CartItem::with('product')->where('customer_id', $customerId)->get();
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Item added to cart successfully',
-        'data' => $cartItem
-    ]);
-}
-public function getByCustomerId($customerId)
-{
-    $cartItems = CartItem::where('customer_id', $customerId)->get();
-
-    return response()->json([
-        'message' => 'Cart items fetched successfully.',
-        'data' => $cartItems
-    ]);
-}
-
+        return response()->json([
+            'message' => 'Cart items fetched successfully.',
+            'data' => $cartItems
+        ]);
+    }
 
     public function index(Request $request, $userId)
     {
-        // Fetch cart items filtered by user_id
-        $cartItems = CartItem::where('user_id', $userId)->get();
+        $cartItems = CartItem::with('product')->where('user_id', $userId)->get();
 
         if ($cartItems->isEmpty()) {
             return response()->json([
@@ -174,13 +150,12 @@ public function getByCustomerId($customerId)
             ], 404);
         }
 
-        // Add additional data (e.g., computed discounts or related data)
+        // Add computed final price
         $cartItems->map(function ($item) {
-            $item->final_price = $item->mrp - ($item->mrp * ($item->discount ?? 0) / 100);
+            $item->final_price = $item->price - ($item->price * ($item->discount ?? 0) / 100);
             return $item;
         });
 
-        // Return the filtered data
         return response()->json([
             'message' => 'Cart items fetched successfully.',
             'data' => $cartItems,
@@ -189,8 +164,7 @@ public function getByCustomerId($customerId)
 
     public function show($id)
     {
-        // Fetch a specific cart item by ID
-        $cartItem = CartItem::find($id);
+        $cartItem = CartItem::with('product')->find($id);
 
         if (!$cartItem) {
             return response()->json([
@@ -198,10 +172,9 @@ public function getByCustomerId($customerId)
             ], 404);
         }
 
-        // Add additional data (e.g., computed fields or related items)
-        $cartItem->final_price = $cartItem->mrp - ($cartItem->mrp * ($cartItem->discount ?? 0) / 100);
+        // Add computed final price
+        $cartItem->final_price = $cartItem->price - ($cartItem->price * ($cartItem->discount ?? 0) / 100);
 
-        // Return the data
         return response()->json([
             'message' => 'Cart item fetched successfully.',
             'data' => $cartItem,
@@ -210,20 +183,16 @@ public function getByCustomerId($customerId)
 
     public function destroy($id)
     {
-        // Find the cart item by ID
         $cartItem = CartItem::find($id);
 
-        // Check if the cart item exists
         if (!$cartItem) {
             return response()->json([
                 'message' => 'Cart item not found.',
             ], 404);
         }
 
-        // Delete the cart item
         $cartItem->delete();
 
-        // Return success response
         return response()->json([
             'message' => 'Cart item deleted successfully.',
         ], 200);
@@ -237,6 +206,4 @@ public function getByCustomerId($customerId)
             ? response()->json(['message' => "Deleted {$deleted} cart item(s)."], 200)
             : response()->json(['message' => 'No cart items found.'], 404);
     }
-    
-    
 }

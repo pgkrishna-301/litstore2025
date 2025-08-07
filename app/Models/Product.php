@@ -11,34 +11,37 @@ class Product extends Model
     protected $table = 'add_product';
 
     protected $fillable = [
+        'product_name',
+        'product_category',
+        'mrp',
+        'hns_code',
+        'dimensions',
+        'driver_output',
+        'ip_rating',
+        'body_color',
+        'color_temp',
+        'beam_angle',
+        'cut_out',
+        'description',
+        'product_details',
         'banner_image',
         'add_image',
-        'product_category',
-        'product_brand',
-        'product_name',
-        'product_description',
-        'mrp',
-        'discount',
-        'discount_status',
-        'offer_price',
-        'offer_product',
-        'size_name',
-        'pack_size',
-        'light_type',
-        'wattage',
-        'special_feature',
-        'bulb_shape_size',
-        'bulb_base',
-        'light_colour',
-        'net_quantity',
-        'colour_temperature',
-        'color_image',
-        'about_items',
     ];
 
     protected $casts = [
+        'body_color' => 'array',
+        'color_temp' => 'array',
+        'beam_angle' => 'array',
+        'cut_out' => 'array',
         'add_image' => 'array',
-        'color_image' => 'array',
-        'size_name' => 'array', // ✅ Add this line
+        'product_details' => 'array',
     ];
+
+    /**
+     * Get the cart items that belong to this product.
+     */
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class, 'product_id');
+    }
 }

@@ -131,45 +131,144 @@ public function getUserById($id)
 
     
 
-   public function updateUser(Request $request)
+public function updateUser(Request $request)
 {
     $request->validate([
-        'id' => 'required|integer|exists:user,id',
+        'id' => 'integer|exists:user,id',
         'name' => 'nullable|string|max:255',
         'architect' => 'nullable|string|max:255',
         'mobile_number' => 'nullable|string|regex:/^[0-9]{10}$/',
         'email' => 'nullable|string|email|max:255',
         'password' => 'nullable|string|min:8',
         'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'target' => 'nullable|array',
+        'target.*.date' => 'nullable|date',
+        'target.*.amount' => 'nullable|numeric',
+        'target.*.archived_amount' => 'nullable|numeric'
     ]);
 
+    // Fetch user
     $user = DB::table('user')->where('id', $request->id)->first();
     if (!$user) {
         return response()->json(['success' => false, 'message' => 'User not found'], 404);
     }
 
+    // Handle profile image
     $profileImagePath = $user->profile_image;
-
     if ($request->hasFile('profile_image')) {
         $path = $request->file('profile_image')->store('uploads', 'public');
-        $profileImagePath = $path; // This will be 'uploads/filename.jpg'
+        $profileImagePath = $path;
     }
 
+    // Decode existing target data
+    $existingTarget = !empty($user->target) ? json_decode($user->target, true) : [];
+
+    // Append new target data if provided
+    if ($request->has('target')) {
+        foreach ($request->target as $newTarget) {
+            $existingTarget[] = [
+                'date' => $newTarget['date'] ?? null,
+                'amount' => $newTarget['amount'] ?? null,
+                'archived_amount' => $newTarget['archived_amount'] ?? null
+            ];
+        }
+    }
+
+    // Prepare updated data
     $updateData = [
         'name' => $request->name ?? $user->name,
         'architect' => $request->architect ?? $user->architect,
         'mobile_number' => $request->mobile_number ?? $user->mobile_number,
         'email' => $request->email ?? $user->email,
         'profile_image' => $profileImagePath,
+        'target' => json_encode($existingTarget)
     ];
 
+    // Handle password
     if ($request->password) {
         $updateData['password'] = Hash::make($request->password);
     }
 
+    // Perform update
     DB::table('user')->where('id', $request->id)->update($updateData);
 
+    // Fetch updated user
     $updatedUser = DB::table('user')->where('id', $request->id)->first();
+    $updatedUser->target = json_decode($updatedUser->target);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'User updated successfully! Target and archived amounts added.',
+        'data' => $updatedUser
+    ], 200);
+}
+
+
+
+
+
+public function updateHide(Request $request, $id)
+{
+    // Validate input data
+    $request->validate([
+        'name' => 'nullable|string|max:255',
+        'mobile_number' => 'nullable|string|regex:/^[0-9]{10}$/',
+        'email' => 'nullable|string|email|max:255',
+        'password' => 'nullable|string|min:8',
+        'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'hide' => 'nullable|string',
+        'architect' => 'nullable|string|max:255',
+        'target' => 'nullable|array',
+        'target.*.date' => 'required_with:target|date',
+        'target.*.amount' => 'required_with:target|numeric',
+        'target.*.archived_amount' => 'required_with:target|numeric',
+        'target.*.partial_amount' => 'nullable|numeric'
+    ]);
+
+    // Find the user by ID
+    $user = DB::table('user')->where('id', $id)->first();
+    if (!$user) {
+        return response()->json(['success' => false, 'message' => 'User not found'], 404);
+    }
+
+    // Handle file upload
+    $profileImagePath = $user->profile_image; // Keep existing image if not updated
+    if ($request->hasFile('profile_image')) {
+        $uploadedImage = $request->file('profile_image');
+        $profileImagePath = $uploadedImage->move(public_path('uploads'), $uploadedImage->getClientOriginalName());
+        $profileImagePath = 'uploads/' . $uploadedImage->getClientOriginalName();
+    }
+
+    // Prepare update data
+    $updateData = [
+        'name' => $request->name ?? $user->name,
+        'architect' => $request->architect ?? $user->architect,
+        'mobile_number' => $request->mobile_number ?? $user->mobile_number,
+        'email' => $request->email ?? $user->email,
+        'profile_image' => $profileImagePath,
+        'hide' => $request->hide ?? $user->hide,
+    ];
+
+    // Update password if provided
+    if ($request->password) {
+        $updateData['password'] = Hash::make($request->password);
+    }
+
+    // Handle target field (JSON encode array)
+    if ($request->has('target')) {
+        $updateData['target'] = json_encode($request->target);
+    }
+
+    // Perform update
+    DB::table('user')->where('id', $id)->update($updateData);
+
+    // Fetch updated user
+    $updatedUser = DB::table('user')->where('id', $id)->first();
+
+    // Decode target to return as array instead of JSON string
+    if (!empty($updatedUser->target)) {
+        $updatedUser->target = json_decode($updatedUser->target);
+    }
 
     return response()->json([
         'success' => true,
@@ -177,62 +276,6 @@ public function getUserById($id)
         'data' => $updatedUser,
     ], 200);
 }
-
-
-    public function updateHide (Request $request, $id)
-    {
-        // Validate input data
-        $request->validate([
-            'name' => 'nullable|string|max:255',
-            'mobile_number' => 'nullable|string|regex:/^[0-9]{10}$/',
-            'email' => 'nullable|string|email|max:255',
-            'password' => 'nullable|string|min:8',
-            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'hide' => 'nullable|string',
-            'architect' => 'nullable|string|max:255', // Validate hide field
-        ]);
-
-        // Find the user by ID
-        $user = DB::table('user')->where('id', $id)->first();
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'User not found'], 404);
-        }
-
-        // Handle file upload
-        $profileImagePath = $user->profile_image; // Keep existing image if not updated
-        if ($request->hasFile('profile_image')) {
-            $uploadedImage = $request->file('profile_image');
-            $profileImagePath = $uploadedImage->move(public_path('uploads'), $uploadedImage->getClientOriginalName());
-            $profileImagePath = 'uploads/' . $uploadedImage->getClientOriginalName();
-        }
-
-        // Prepare update data
-        $updateData = [
-            'name' => $request->name ?? $user->name,
-            'architect' => $request->architect ?? $user->architect,
-            'mobile_number' => $request->mobile_number ?? $user->mobile_number,
-            'email' => $request->email ?? $user->email,
-            'profile_image' => $profileImagePath,
-            'hide' => $request->hide ?? $user->hide, // Add hide field
-        ];
-
-        // Update password if provided
-        if ($request->password) {
-            $updateData['password'] = Hash::make($request->password);
-        }
-
-        // Perform update
-        DB::table('user')->where('id', $id)->update($updateData);
-
-        // Fetch updated user
-        $updatedUser = DB::table('user')->where('id', $id)->first();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User updated successfully!',
-            'data' => $updatedUser,
-        ], 200);
-    }
     
 public function getAllUsers(Request $request) 
 {

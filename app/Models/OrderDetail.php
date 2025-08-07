@@ -9,9 +9,37 @@ class OrderDetail extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['order_id' ,'user_id', 'status','discount_status', 'cash', 'credit', 'received', 'pending', 'products', 'price','customer_id','customer_name', 'architect_name','email', 'phone_number', 'shipping_address', 'delivery_date', 'discount', 'discount_status', 'discount_price'];
+    protected $fillable = [
+        'order_id',
+        'user_id',
+        'products',
+        'total_price',
+        'status',
+        'cash',
+        'credit',
+        'received',
+        'pending',
+        'discount_status',
+        'discount_stage',
+        'quotation_id',
+        'discount_price',
+        'customer_id',
+        'quotation_status',
+        'delivery_date'
+    ];
 
     protected $casts = [
-        'products' => 'array', // Automatically convert JSON to array
+        'products' => 'array',
+        'total_price' => 'decimal:2',
+        'status' => 'integer',
+        'delivery_date' => 'date',
     ];
+
+    /**
+     * Get the architect (customer) that this order belongs to.
+     */
+    public function customer()
+    {
+        return $this->belongsTo(Architect::class, 'customer_id');
+    }
 }

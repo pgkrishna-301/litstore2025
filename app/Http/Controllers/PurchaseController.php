@@ -4,216 +4,219 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Purchase;
+use App\Models\Product;
+use App\Models\CartItem;
 use Illuminate\Support\Facades\Storage;
 
 class PurchaseController extends Controller
 {
-    public function store(Request $request)
+ public function store(Request $request)
     {
-        // Validate incoming request
         $validated = $request->validate([
-            'banner_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048', // 2MB max file size
-            'color_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-            'size' => 'nullable|string',
-            'size_name' => 'nullable|string',
-            'pack_size' => 'nullable|string',
-            'brand' => 'nullable|string',
-            'light_type' => 'nullable|string',
-            'wattage' => 'nullable|string',
-            'mrp' => 'nullable|numeric',
-            'discount' => 'nullable|numeric',
-            'bulb_shape_size' => 'nullable|string',
-            'bulb_base' => 'nullable|string',
-            'product_name' => 'nullable|string',
-            'user_id' => 'nullable|string',
-            'qty' => 'nullable|numeric',
-            'location' => 'nullable|string',
+            'product_id' => 'required|integer|exists:add_product,id',
+            'qty' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'reflector_color' => 'nullable|string',
         ]);
 
-        // Handle file uploads and save to public/storage/uploads
-        if ($request->hasFile('banner_image')) {
-            $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
+        // Check if product exists
+        $product = Product::find($validated['product_id']);
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found.'
+            ], 404);
         }
 
-        if ($request->hasFile('color_image')) {
-            $validated['color_image'] = $request->file('color_image')->store('uploads', 'public');
+        // Check for duplicate purchase item
+        $existing = Purchase::where('product_id', $validated['product_id'])
+            ->where('reflector_color', $validated['reflector_color'] ?? null)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'This item already exists in purchase.'
+            ], 409);
         }
 
-        // Save the data in the database
-        $Purchase = Purchase::create($validated);
+        $purchaseItem = Purchase::create($validated);
 
-        // Return success response
         return response()->json([
-            'message' => 'Cart item created successfully.',
-            'data' => $Purchase
+            'message' => 'Purchase item created successfully.',
+            'data' => $purchaseItem
         ], 201);
     }
 
     public function update(Request $request, $id)
-{
-    // Validate incoming request
-    $validated = $request->validate([
-        'banner_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048', // 2MB max file size
-        'color_image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-        'size' => 'nullable|string',
-        'size_name' => 'nullable|string',
-        'pack_size' => 'nullable|string',
-        'brand' => 'nullable|string',
-        'light_type' => 'nullable|string',
-        'wattage' => 'nullable|string',
-        'mrp' => 'nullable|numeric',
-        'discount' => 'nullable|numeric',
-        'bulb_shape_size' => 'nullable|string',
-        'bulb_base' => 'nullable|string',
-        'product_name' => 'nullable|string',
-        'user_id' => 'nullable|string',
-        'qty' => 'nullable|numeric',
-        'location' => 'nullable|string',
-    ]);
-
-    // Find the cart item by ID
-    $Purchase = Purchase::find($id);
-
-    if (!$Purchase) {
-        return response()->json(['message' => 'Cart item not found.'], 404);
-    }
-
-    // Handle file uploads and update storage
-    if ($request->hasFile('banner_image')) {
-        // Delete the old file if exists
-        if ($Purchase->banner_image) {
-            Storage::disk('public')->delete($Purchase->banner_image);
-        }
-        $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
-    }
-
-    if ($request->hasFile('color_image')) {
-        if ($Purchase->color_image) {
-            Storage::disk('public')->delete($Purchase->color_image);
-        }
-        $validated['color_image'] = $request->file('color_image')->store('uploads', 'public');
-    }
-
-    // Update cart item with new values
-    $Purchase->update($validated);
-
-    // Return success response
-    return response()->json([
-        'message' => 'Cart item updated successfully.',
-        'data' => $Purchase
-    ], 200);
-}
-public function addToCart(Request $request)
-{
-    $validated = $request->validate([
-        'user_id' => 'required|integer',
-        'product_name' => 'required|string',
-        'qty' => 'required|integer',
-        'size_name' => 'nullable|string',
-        'size' => 'nullable|string',
-        'brand' => 'nullable|string',
-        'mrp' => 'required|string',
-        'banner_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048', // Ensure it's an image file
-    ]);
-
-    // Handle file uploads and update storage
-    if ($request->hasFile('banner_image')) {
-        $validated['banner_image'] = $request->file('banner_image')->store('uploads', 'public');
-    }
-
-    $Purchase = Purchase::create($validated);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Item added to cart successfully',
-        'data' => $Purchase
-    ]);
-}
-
-
-  public function index(Request $request, $userId)
-{
-    // Fetch cart items filtered by user_id
-    $purchases = Purchase::where('user_id', $userId)->get();
-
-    if ($purchases->isEmpty()) {
-        return response()->json([
-            'message' => 'No cart items found for the given user.',
-        ], 404);
-    }
-
-    // Process each item
-    $purchases = $purchases->map(function ($item) {
-        // Compute final price with discount
-        $item->final_price = $item->mrp - ($item->mrp * ($item->discount ?? 0) / 100);
-
-        // Append full banner_image URL if file exists
-        if (!empty($item->banner_image) && !str_starts_with($item->banner_image, 'http')) {
-            $filename = basename($item->banner_image);
-            $item->banner_image_url = url('api/banner-image/' . $filename);
-        } else {
-            $item->banner_image_url = null;
-        }
-
-        // Append full color_image URL if file exists
-        if (!empty($item->color_image) && !str_starts_with($item->color_image, 'http')) {
-            $filename = basename($item->color_image);
-            $item->color_image_url = url('api/color-image/' . $filename);
-        } else {
-            $item->color_image_url = null;
-        }
-
-        return $item;
-    });
-
-    // Return the filtered and formatted data
-    return response()->json([
-        'success' => true,
-        'message' => 'Cart items fetched successfully.',
-        'data' => $purchases,
-    ], 200);
-}
-
-
-    public function show($id)
     {
-        // Fetch a specific cart item by ID
-        $Purchase = Purchase::find($id);
+        $validated = $request->validate([
+            'product_id' => 'nullable|integer|exists:add_product,id',
+            'qty' => 'nullable|integer|min:1',
+            'price' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'reflector_color' => 'nullable|string',
+        ]);
 
-        if (!$Purchase) {
+        $purchaseItem = Purchase::find($id);
+
+        if (!$purchaseItem) {
+            return response()->json(['message' => 'Purchase item not found.'], 404);
+        }
+
+        // Check if product exists if product_id is being updated
+        if (isset($validated['product_id'])) {
+            $product = Product::find($validated['product_id']);
+            if (!$product) {
+                return response()->json([
+                    'message' => 'Product not found.'
+                ], 404);
+            }
+        }
+
+        $purchaseItem->update($validated);
+
+        return response()->json([
+            'message' => 'Purchase item updated successfully.',
+            'data' => $purchaseItem
+        ], 200);
+    }
+
+    public function addToCart(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:add_product,id',
+            'qty' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'reflector_color' => 'nullable|string',
+        ]);
+
+        // Check if product exists
+        $product = Product::find($validated['product_id']);
+        if (!$product) {
             return response()->json([
-                'message' => 'Cart item not found.',
+                'message' => 'Product not found.'
             ], 404);
         }
 
-        // Add additional data (e.g., computed fields or related items)
-        $Purchase->final_price = $Purchase->mrp - ($Purchase->mrp * ($Purchase->discount ?? 0) / 100);
+        // Check for duplicate purchase item
+        $existing = Purchase::where('product_id', $validated['product_id'])
+            ->where('reflector_color', $validated['reflector_color'] ?? null)
+            ->first();
 
-        // Return the data
+        if ($existing) {
+            return response()->json([
+                'message' => 'This item already exists in purchase.'
+            ], 409);
+        }
+
+        $purchaseItem = Purchase::create($validated);
+
         return response()->json([
-            'message' => 'Cart item fetched successfully.',
-            'data' => $Purchase,
+            'success' => true,
+            'message' => 'Item added to purchase successfully',
+            'data' => $purchaseItem
+        ]);
+    }
+
+    public function getByCustomerId($customerId)
+    {
+        $purchaseItems = Purchase::with('product')->get();
+
+        return response()->json([
+            'message' => 'Purchase items fetched successfully.',
+            'data' => $purchaseItems
+        ]);
+    }
+
+    public function index(Request $request, $userId)
+    {
+        $purchaseItems = Purchase::with('product')->get();
+
+        if ($purchaseItems->isEmpty()) {
+            return response()->json([
+                'message' => 'No purchase items found.',
+            ], 404);
+        }
+
+        // Add computed final price
+        $purchaseItems->map(function ($item) {
+            $item->final_price = $item->price - ($item->price * ($item->discount ?? 0) / 100);
+            return $item;
+        });
+
+        return response()->json([
+            'message' => 'Purchase items fetched successfully.',
+            'data' => $purchaseItems,
+        ], 200);
+    }
+
+    public function show($id)
+    {
+        $purchaseItem = Purchase::with('product')->find($id);
+
+        if (!$purchaseItem) {
+            return response()->json([
+                'message' => 'Purchase item not found.',
+            ], 404);
+        }
+
+        // Add computed final price
+        $purchaseItem->final_price = $purchaseItem->price - ($purchaseItem->price * ($purchaseItem->discount ?? 0) / 100);
+
+        return response()->json([
+            'message' => 'Purchase item fetched successfully.',
+            'data' => $purchaseItem,
         ], 200);
     }
 
     public function destroy($id)
     {
-        // Find the cart item by ID
-        $Purchase = Purchase::find($id);
+        $purchaseItem = Purchase::find($id);
 
-        // Check if the cart item exists
-        if (!$Purchase) {
+        if (!$purchaseItem) {
             return response()->json([
-                'message' => 'Cart item not found.',
+                'message' => 'Purchase item not found.',
             ], 404);
         }
 
-        // Delete the cart item
-        $Purchase->delete();
+        $purchaseItem->delete();
 
-        // Return success response
         return response()->json([
-            'message' => 'Cart item deleted successfully.',
+            'message' => 'Purchase item deleted successfully.',
         ], 200);
+    }
+
+    public function getAll()
+{
+    $purchaseItems = Purchase::with('product')->get();
+
+    if ($purchaseItems->isEmpty()) {
+        return response()->json([
+            'message' => 'No purchase items found.',
+            'data' => []
+        ], 200);
+    }
+
+    // Add computed final price for each item
+    $purchaseItems->map(function ($item) {
+        $item->final_price = $item->price - ($item->price * ($item->discount ?? 0) / 100);
+        return $item;
+    });
+
+    return response()->json([
+        'message' => 'All purchase items fetched successfully.',
+        'data' => $purchaseItems,
+    ], 200);
+}
+
+
+    public function destroyByCustomer(string $customer_id)
+    {
+        $deleted = Purchase::delete();
+    
+        return $deleted
+            ? response()->json(['message' => "Deleted {$deleted} purchase item(s)."], 200)
+            : response()->json(['message' => 'No purchase items found.'], 404);
     }
 }

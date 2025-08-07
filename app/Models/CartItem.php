@@ -3,7 +3,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class CartItem extends Model
 {
@@ -13,35 +12,19 @@ class CartItem extends Model
 
     protected $fillable = [
         'product_id',
-        'customer_id',
-        'banner_image',
-        'color_image',
-        'color_name',
-        'size',
-        'size_name',
-        'brand',
-        'light_type',
-        'wattage',
-        'mrp',
-        'discount',
-        'bulb_shape_size',
-        'bulb_base',
-        'product_name',
-        'user_id',
-        'pack_size',
         'qty',
-        'location'
+        'price',
+        'discount',
+        'customer_id',
+        'user_id',
+        'reflector_color',
+        'location',
+        'custome_name'
     ];
 
-    // Accessor for banner_image
-    public function getBannerImageAttribute($value)
+    // Relationship to Product model
+    public function product()
     {
-        return $value ? Storage::url($value) : null;
-    }
-
-    // Accessor for color_image
-    public function getColorImageAttribute($value)
-    {
-        return $value ? Storage::url($value) : null;
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

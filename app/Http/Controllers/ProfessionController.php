@@ -32,13 +32,31 @@ class ProfessionController extends Controller
     }
 
     public function getProfessions()
-{
-    $professions = Profession::all(); // Fetch all records
+    {
+        $professions = Profession::with('architects')->get(); // Fetch all records with architects
 
-    return response()->json([
-        'message' => 'Professions retrieved successfully',
-        'data' => $professions
-    ], 200);
-}
+        return response()->json([
+            'message' => 'Professions retrieved successfully',
+            'data' => $professions
+        ], 200);
+    }
 
+    // Get single profession with architects
+    public function getProfessionById($id)
+    {
+        $profession = Profession::with('architects')->find($id);
+
+        if (!$profession) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Profession not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Profession details fetched successfully',
+            'data' => $profession,
+        ], 200);
+    }
 }

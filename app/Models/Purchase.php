@@ -11,33 +11,22 @@ class Purchase extends Model
 
     protected $table = 'purchase';
 
+
     protected $fillable = [
-        'banner_image',
-        'color_image',
-        'size',
-        'size_name',
-        'brand',
-        'light_type',
-        'wattage',
-        'mrp',
-        'discount',
-        'bulb_shape_size',
-        'product_name',
-        'user_id',
-        'pack_size',
+        'product_id',
         'qty',
-        'location'
+        'price',
+        'discount',
+        'customer_id',
+        'user_id',
+        'reflector_color',
+        'location',
+        'custome_name'
     ];
 
-    // Accessor for banner_image
-    public function getBannerImageAttribute($value)
+    // Relationship to Product model
+    public function product()
     {
-        return $value ? Storage::url($value) : null;
-    }
-
-    // Accessor for color_image
-    public function getColorImageAttribute($value)
-    {
-        return $value ? Storage::url($value) : null;
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }
